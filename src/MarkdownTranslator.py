@@ -215,10 +215,10 @@ class MdTranslater:
                 config.src_filenames = [folder_path.name]
                 folder_path = folder_path.parent
 
-            # 使用glob模块来匹配文件
+            # 使用rglob模块来匹配文件
             matched_files = []
             for pattern in config.src_filenames:
-                matched_files.extend(glob.glob(str(folder_path / pattern)))
+                matched_files.extend(folder_path.rglob(pattern))  # 修改为rglob
             
             if not matched_files:
                 logging.warning(f"{folder} not match file, Skipped!!!")
