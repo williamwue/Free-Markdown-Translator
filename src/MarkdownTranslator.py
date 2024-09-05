@@ -2,6 +2,7 @@ import argparse
 import copy
 import concurrent.futures
 from pathlib import Path
+import glob
 from Translator import Translator
 from Nodes import *
 from config import config
@@ -205,33 +206,41 @@ class MdTranslater:
         """
         files_to_translate = []
         for folder in folders:
-            folder = Path(folder)
-            if not folder.exists():
+            folder_path = Path(folder)
+            if not folder_path.exists():
                 logging.warning(f"{folder} does not exist, Skipped!!!")
                 continue
-            if folder.is_file():
-                config.src_filenames = [folder.stem]
-                folder = folder.parent
+            
+            if folder_path.is_file():
+                config.src_filenames = [folder_path.name]
+                folder_path = folder_path.parent
 
-            # 每个文件夹下至少存在一个配置中的文件名
-            if not any((Path(folder) / f"{src_filename}.md").exists() for src_filename in config.src_filenames):
-                logging.warning(f"{folder} does not contain any file in src_filenames, Skipped!")
+            # 使用glob模块来匹配文件
+            matched_files = []
+            for pattern in config.src_filenames:
+                matched_files.extend(glob.glob(str(folder_path / pattern)))
+            
+            if not matched_files:
+                logging.warning(f"{folder} not match file, Skipped!!!")
                 continue
 
-            for src_filename in config.src_filenames:
-                src_file = Path(folder) / (src_filename + '.md')
-                if not src_file.exists():
+            for src_file in matched_files:
+                src_file_path = Path(src_file)
+                if not src_file_path.suffix.lower() == '.md':
                     continue
+                
                 # 将要被翻译至的语言
                 target_langs: list[str] = []
                 for lang in config.target_langs:
-                    target_file = Path(folder) / f'{src_filename}.{lang}.md'
+                    target_file = src_file_path.with_name(f'{src_file_path.stem}.{lang}.md')
                     if target_file.exists():
                         logging.warning(f"{shortedPath(target_file)} already exists, Skipped!")
                         continue
                     target_langs.append(lang)
+                
                 if len(target_langs):
-                    files_to_translate.append((src_file, target_langs))
+                    files_to_translate.append((src_file_path, target_langs))
+        
         return files_to_translate
 
     def __parallel_translate(self, files_to_translate: list[tuple[Path, list[str]]]) -> None:
